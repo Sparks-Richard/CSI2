@@ -1,4 +1,44 @@
 ///////////////////////////////////////////////////////////////////////////////
+// git config --global user.name
+// git config --global user.email
+//、
+// git remote -v
+//
+// # 删除origin
+// git remote remove origin
+//
+// # 删除github
+// git remote remove github
+//
+// # 删除gitee
+// git remote remove gitee
+// # 添加新的origin
+// git remote add origin https://新的仓库地址.git
+//
+// # 添加github
+// git remote add github https://github.com/Sparks-Richard/仓库名.git
+//
+// # 添加gitee
+// git remote add gitee https://gitee.com/Sparks-Richard/仓库名.git
+//
+// git push github main && git push gitee main
+//
+// # 推送到 github
+// git push github main --force
+// # 推送到 gitee
+// git push gitee main --force
+//
+//git push github main --force && git push gitee main --force
+////////////////////////////////////////////////////////////////////////////////
+// by Sparks-Richard    this is just a  start 
+// my life will be full of challenges and opportunities
+// I will embrace them all
+// JiaTu_Li  2025_08_22_11:13 in jinan
+///////////////////////////////////////////////////////////////////////////////
+
+
+
+///////////////////////////////////////////////////////////////////////////////
 // I2C 顶层模块
 // 功能：集成 I2C 驱动、时钟管理和 VIO 控制
 ///////////////////////////////////////////////////////////////////////////////

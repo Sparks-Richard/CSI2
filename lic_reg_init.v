@@ -23,12 +23,7 @@ module iic_reg_init(
 localparam	IIC_REG_COUNT 	= 16'd171;
 localparam	I2C_DEVICE_ADDR = 8'b0111_1010;
 localparam	I2C_length 		= IIC_REG_COUNT*24 - 4'd1;												
-												
-
-
-
-
-												
+																					
 reg [I2C_length :0]	IIC_REG_DATA = {
 16'h3014,  8'h05,
 16'h3014,  8'h05,
