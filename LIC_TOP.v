@@ -1,7 +1,7 @@
-///////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
 // git config --global user.name
 // git config --global user.email
-//、
+//
 // git remote -v
 //
 // # 删除origin
@@ -12,6 +12,13 @@
 //
 // # 删除gitee
 // git remote remove gitee
+//
+// # 确保你在正确的项目目录下
+// cd ~/VERILOGDAIMA/CSI_2/CSI_2.srcs/sources_1/new
+//
+// # 初始化 Git 仓库
+// git init
+//
 // # 添加新的origin
 // git remote add origin https://新的仓库地址.git
 //
@@ -21,6 +28,7 @@
 // # 添加gitee
 // git remote add gitee https://gitee.com/Sparks-Richard/仓库名.git
 //
+// git push github && git push gitee 
 // git push github main && git push gitee main
 //
 // # 推送到 github
@@ -28,8 +36,30 @@
 // # 推送到 gitee
 // git push gitee main --force
 //
-//git push github main --force && git push gitee main --force
-////////////////////////////////////////////////////////////////////////////////
+// git push github main --force && git push gitee main --force
+//
+// # 查看 github 远程仓库的 main 分支状态
+// git log github/main --oneline -5
+//
+// # 查看 gitee 远程仓库的 main 分支状态
+// git log gitee/main --oneline -5
+//
+// # 查看你本地的 main 分支状态
+// git log --oneline -5
+//
+// # 检查状态，这会告诉你是否有已暂存但未提交的更改
+// git status
+//
+// # 第1步：添加所有修改（每次必做）
+// git add .
+//
+// # 第2步：提交到本地（每次必做）
+// git commit -m "这里写你改了什么东西"
+//
+// # 第3步：推送到两个网站（每次必做）
+// git push github main
+// git push gitee main
+//////////////////////////////////////////////////////////////////////////////////
 // by Sparks-Richard    this is just a  start 
 // my life will be full of challenges and opportunities
 // I will embrace them all
@@ -43,13 +73,22 @@
 // 功能：集成 I2C 驱动、时钟管理和 VIO 控制
 ///////////////////////////////////////////////////////////////////////////////
 module IIC_Top(
-    inout               SDI,        // I2C 数据线 (双向)
-    output              SCK,        // I2C 时钟线
-    input               sysclk_p,   // 差分时钟输入+
-    input               sysclk_n,   // 差分时钟输入-
-    output              clk_24m,    // 24MHz 时钟输出 (供摄像头使用)
-    output              cam_rst     // 摄像头复位信号
+    inout               SDI       , // I2C 数据线 (双向)
+    output              SCK       , // I2C 时钟线
+    input               sysclk_p  , // 差分时钟输入+
+    input               sysclk_n  , // 差分时钟输入-
+    //output              clk_24m   , // 24MHz 时钟输出 (供摄像头使用)
+    output              cam_rst   , // 摄像头复位信号
+
+    input               cam_clk_p , // 摄像头时钟输入+
+    input               cam_clk_n , // 摄像头时钟输入-
+    input               cam_in0_p , //2 lane  
+    input               cam_in0_n ,
+    output     wire     cam_clk
 );
+
+
+
 
 // 内部信号声明
 reg     [3:0]   count_reg;       // 时钟分频计数器
@@ -68,6 +107,13 @@ wire            IIC_START;       // I2C 启动信号
 wire    [7:0]   nstate;          // 下一状态
 wire    [15:0]  Rec_count;       // 状态计数器
 wire            TESTSDI;         // SDA 测试信号
+
+
+wire            lane0_data;
+wire            head_true;///////////我后加的
+wire    [7:0]   data_reg_n;
+wire    [7:0]   head_count;
+//wire            cam_clk;
 
 // SDA 三态控制信号
 wire sda_i, sda_o, sda_t;
@@ -122,24 +168,24 @@ end
 // 功能：实现 I2C 协议的核心控制
 ///////////////////////////////////////////////////////////////////////////////
 iic_drive iic_drive_r(
-    .clk_8m(clk_8m),
-    .clk_i(clk_i),
-    .rst_n(rst_n),
-    .wr_rd_flag(wr_rd_flag),
-    .start_en(IIC_START),
-    .i2c_device_addr(i2c_device_addr),
-    .register(register),
-    .data_byte(data_byte),
-    .scl(SCK),
-    .sda(SDI),
-    .busy(busy),
-    .err(err),
-    .rd_data(rd_data),
-    .sda_o(sda_o),
-    .sda_t(sda_t),
-    .sda_i(sda_i),
-    .Rec_count(Rec_count),
-    .nstate(nstate)
+    .clk_8m             (clk_8m)          ,
+    .clk_i              (clk_i)           ,
+    .rst_n              (rst_n)           ,
+    .wr_rd_flag         (wr_rd_flag)      ,
+    .start_en           (IIC_START)       ,
+    .i2c_device_addr    (i2c_device_addr) ,
+    .register           (register)        ,
+    .data_byte          (data_byte)       ,
+    .scl                (SCK)             ,
+    .sda                (SDI)             ,
+    .busy               (busy)            ,
+    .err                (err)             ,
+    .rd_data            (rd_data)         ,
+    .sda_o              (sda_o)           ,
+    .sda_t              (sda_t)           ,
+    .sda_i              (sda_i)           ,
+    .Rec_count          (Rec_count)       ,
+    .nstate             (nstate)
 );
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,6 +199,7 @@ clk_wiz_0 clk_wiz_u (
     .locked(rst_n),       // 锁定信号作为复位
     .clk_in1_p(sysclk_p), // 差分时钟+
     .clk_in1_n(sysclk_n)  // 差分时钟-
+
 );
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -164,17 +211,18 @@ vio_0 vio_u (
     .probe_in0(busy),           // 输入：忙信号
     .probe_out0(wr_rd_flag),    // 输出：读写标志
     .probe_out1(IIC_en_tri),    // 输出：I2C使能
-    .probe_out2(i2c_device_addr), // 输出：设备地址
-    .probe_out3(register),      // 输出：寄存器地址
-    .probe_out4(data_byte)      // 输出：写入数据
+    //.probe_out2(), // 输出：设备地址
+    .probe_out2(register),      // 输出：寄存器地址
+    .probe_out3(data_byte)      // 输出：写入数据
 );
-
+assign i2c_device_addr = 7'h36;
 ///////////////////////////////////////////////////////////////////////////////
 // ILA 调试接口
 // 功能：提供片上逻辑分析仪功能
 ///////////////////////////////////////////////////////////////////////////////
 ila_0 ila_u (
-    .clk(clk_8m),           // 采样时钟
+    .clk(clk_50m),           // 采样时钟
+    
     .probe0(sda_o),         // SDA 输出值
     .probe1(SCK),           // SCL 时钟
     .probe2(busy),          // 忙信号
@@ -186,17 +234,52 @@ ila_0 ila_u (
     .probe8(Rec_count),     // 状态计数器
     .probe9(err),           // 错误信号
     .probe10(cam_rst),      // 摄像头复位
-    .probe11(clk_24m)       // 24MHz 时钟
+    .probe11(clk_24m)  ,     // 24MHz 时钟
+
+    .probe12(lane0_data),
+    .probe13(head_true),
+    .probe14(data_reg_n),
+    .probe15(cam_clk),
+    .probe16(head_count)
 );
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 // 摄像头复位模块
 // 功能：生成摄像头复位信号
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 cam_reset_min reset_min(
     .clk_50m(clk_50m),
     .cam_rst(cam_rst)
 );
+
+
+RAW RAW_r(
+    .rst_n              (rst_n        ), 
+   // .clk_i              (clk_i       ),
+    .Lane_Change        (1'b0         ),
+    .cam_in0_p          (cam_in0_p    ),   
+    .cam_in0_n          (cam_in0_n    ), //2 lane 
+    //.cam_in1_p         (1'b0        ),   
+    //.cam_in1_n         (1'b0        ), //2 lane 
+    .cam_clk_p          (cam_clk_p    ),
+    .cam_clk_n          (cam_clk_n    ),
+    .clk_i              (clk_24m      ),// 24MHz clock//EXTCLK
+    .lane0_data         (lane0_data   ),
+    .head_true          (head_true    ),
+    .data_reg_n         (data_reg_n   ),
+    .head_count_r       (head_count   ),
+    .cam_clk            (cam_clk      )
+
+);
+
+
+
+
+
+
+
+
+
 
 
 

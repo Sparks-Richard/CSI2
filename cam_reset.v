@@ -3,9 +3,9 @@ module cam_reset_min(
     output reg cam_rst  // 连接到Y26
 );
 
-reg [23:0] cnt;
+reg [7:0] cnt;
 always @(posedge clk_50m) begin
-    if (cnt < 24'd50_000) begin  // 1ms复位脉冲
+    if (cnt < 8'd50) begin  // 1ms复位脉冲
         cam_rst <= 0;    // 拉低复位
         cnt <= cnt + 1;
     end else begin
