@@ -13,7 +13,4 @@ always @(posedge clk_50m) begin
     end
 end
 
-
-
-
 endmodule

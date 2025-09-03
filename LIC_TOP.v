@@ -1,4 +1,10 @@
 //////////////////////////////////////////////////////////////////////////////////
+// 关于保存ila
+// open_hw_manager
+// # 注意：不要执行 connect_hw_server 和 open_hw_target！
+// # 方式1：使用绝对路径
+// read_hw_ila_data /home/lijiatu/VERILOGDAIMA/I2C/I2C.srcs/sources_1/new/zhua-head-first-try.ila
+//////////////////////////////////////////////////////////////////////////////////
 // git config --global user.name
 // git config --global user.email
 //
@@ -57,8 +63,7 @@
 // git commit -m "这里写你改了什么东西"
 //
 // # 第3步：推送到两个网站（每次必做）
-// git push github main
-// git push gitee main
+// git push github main && git push gitee main
 //////////////////////////////////////////////////////////////////////////////////
 // by Sparks-Richard    this is just a  start 
 // my life will be full of challenges and opportunities

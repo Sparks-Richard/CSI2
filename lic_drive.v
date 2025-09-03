@@ -14,7 +14,8 @@ module iic_drive(
     output reg          busy,
     output reg          err,
     output reg [7:0]    rd_data,
-    output reg sda_o,
+    output reg          sda_o,
+  
   // 改为纯输出
     output reg sda_t   ,   // 三态控制信号（需监控）
     input sda_i  ,      // 新增：SDA输入状态
@@ -36,6 +37,9 @@ localparam  rd_data_byte = 8'b0111_1110; // 7E - 读数据字节
 localparam  i2c_over     = 8'b1011_1101; // BD - 传输结束（产生STOP条件）
 //localparam  i2c_ack      = 8'b0111_1011; // 7B - 等待/应答ACK周期
 
+
+
+
 reg [7:0] nstate;
 reg [7:0] cstate; 
 reg [7:0] dev_r;
@@ -46,6 +50,7 @@ reg [7:0] rd_dev_r;
 reg [7:0] rd_reg_h;
 reg [7:0] rd_reg_l;
 reg [7:0] rd_data_byte_r;  // 接收数据寄存器
+
 
 //reg       sda_t;
 reg       State_turn;
@@ -60,7 +65,9 @@ always @(posedge clk_i or negedge rst_n) begin
     else       scl_d <= scl;
 end
 
+
 //assign sda_i = sda;
+
 
 always @(*) begin
     case (cstate)
@@ -77,6 +84,7 @@ always @(*) begin
         default:     nstate = idle; // 必须的默认分支
     endcase
 end
+
 
 always @(posedge clk_i or negedge rst_n) begin
     if (!rst_n) begin
@@ -112,10 +120,12 @@ always @(posedge clk_i or negedge rst_n) begin
                 end else begin
                     sda_t <= 1'b1;
                 end
+
             end
             rd_data_byte: begin 
-                if ( Rec_count == 16'd16) begin
+                if ( Rec_count == 16'd16|| Rec_count == 16'd15) begin
                     sda_t <= 1'b0;
+
                 end
                 else    sda_t <= 1'b1;
             end
@@ -147,6 +157,7 @@ always @(posedge clk_i or negedge rst_n) begin
             idle: begin
                 sda_o <= 1'b1;
             end
+            
             start_bit: begin
                 dev_r <= {i2c_device_addr[6:0], 1'b0};
                 reg_h <= register[15:8];
@@ -159,6 +170,7 @@ always @(posedge clk_i or negedge rst_n) begin
                     sda_o <= 1'b0;
                 end
             end
+            
             wr_dev_ctrl: begin
                 if (Rec_count == 16'd15 || Rec_count == 16'd16) begin
                     sda_o <= 1'b1;
@@ -234,19 +246,24 @@ always @(posedge clk_i or negedge rst_n) begin
             
             rd_data_byte: begin
                 if (Rec_count == 16'd16) begin
-                    sda_o<= 1'b0;
-                end else 
+                    sda_o<= 1'b0;// 读数据字节时，ACK/NACK信号
+                end else //if (Rec_count == 16'd17) begin
                     sda_o <= 1'b1;
+                //end else begin
+                 //   sda_o <= rd_data_byte_r[7];
+                 //   if (!scl) rd_data_byte_r <= {rd_data_byte_r[6:0], sda_o};
+               // end
             end
             
             i2c_over: begin
-                
+                //rd_data <= rd_data_byte_r;
                 if (Rec_count <= 16'd1) begin
                     sda_o <= 1'b0;
                 end else begin
                     sda_o <= 1'b1;
                 end
             end
+            
             default: sda_o <= 1'b1;
         endcase
     end
@@ -264,11 +281,27 @@ always @(posedge clk_i or negedge rst_n) begin
                 if (scl_rise && Rec_count < 16'd16)
                     rd_data <= {rd_data[6:0], sda_i};
             end
+
             default: rd_data <= rd_data;
         endcase
     end
 end
 
+
+
+// always @(posedge clk_i or negedge rst_n) begin
+//     if (!rst_n) begin
+//         rd_data <= 8'h00;
+//     end else if (nstate == rd_data_byte) begin
+//         // 在有效的 SCL 高电平中点采样 SDA
+//         if ((Rec_count >= 1) && (Rec_count <= 15)) begin
+//             if (Rec_count[3:0] == 4'd8) begin
+//                 // 每8拍采到一位，左移
+//                 rd_data <= {rd_data[6:0], sda_i};
+//             end
+//         end
+//     end
+// end
 
 always @(posedge clk_i or negedge rst_n) begin
     if (!rst_n) begin
@@ -322,7 +355,7 @@ always @(posedge clk_i or negedge rst_n) begin
     end else begin
         case (nstate)
             wr_dev_ctrl, wr_reg_high, wr_reg_low, wr_data_byte, rd_dev_ctrl: begin
-
+                
                 if (Rec_count == 16'd16) begin
                     err <= ~sda_i; // ACK检测（期望0），如果SDA高表示没有应答
                 end else begin
@@ -367,3 +400,4 @@ always @(posedge clk_i or negedge rst_n) begin
 end
 
 endmodule
+

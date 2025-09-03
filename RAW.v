@@ -1,4 +1,10 @@
 //////////////////////////////////////////////////////////////////////////////////
+// 关于保存ila
+// open_hw_manager
+// # 注意：不要执行 connect_hw_server 和 open_hw_target！
+// # 方式1：使用绝对路径
+// read_hw_ila_data /home/lijiatu/VERILOGDAIMA/I2C/I2C.srcs/sources_1/new/zhua-head-first-try.ila
+//////////////////////////////////////////////////////////////////////////////////
 // git config --global user.name
 // git config --global user.email
 //
@@ -57,8 +63,7 @@
 // git commit -m "这里写你改了什么东西"
 //
 // # 第3步：推送到两个网站（每次必做）
-// git push github main
-// git push gitee main
+// git push github main && git push gitee main
 //////////////////////////////////////////////////////////////////////////////////
 // by Sparks-Richard    this is just a  start 
 // my life will be full of challenges and opportunities
@@ -88,24 +93,25 @@
 
          
 module RAW(
-    input               rst_n       , 
-   // input               clk_i       ,
-    input               Lane_Change ,
+    input               rst_n        ,
+
+    input               Lane_Change  ,
     input               cam_in0_p    ,   
-    input               cam_in0_n     , //2 lane 
-    // input               cam_in1_p    ,   
-    // input               cam_in1_n     , //2 lane 
+    input               cam_in0_n    ,//2 lane 
+
     input               cam_clk_p    ,
     input               cam_clk_n    ,
-    input               clk_i,      // 24MHz clock//EXTCLK
-    output              lane0_data,
-    output reg          head_true,
-    output  wire [7:0] head_count_r,
-    output reg [7:0]    data_reg_n,
-    output wire         cam_clk,
-    input                 clk_24m
+    input               clk_i        ,// 24MHz clock//EXTCLK
+    output              lane0_data   ,
+    output reg          head_true    ,
+    output wire [7:0]   head_count_r ,
+    output reg  [7:0]   data_reg_n   ,
+    output wire         cam_clk      ,
+    input               clk_24m
 
-
+    // input               clk_i       ,
+    // input               cam_in1_p   ,   
+    // input               cam_in1_n   ,//2 lane ，另外的摄像头的
     );
         
     reg [ 7:0] cstate     ;
@@ -210,11 +216,11 @@ always @(posedge cam_clk or negedge rst_n) begin
         data_reg <= 8'b00;
     end 
 
-    else if(head_count<8'h08)begin
+    else if(head_count < 8'd8)begin
         data_reg <= {data_reg[6:0], lane0_data} ;
     end
-
 end
+
 reg [7:0] head_count;   // 内部寄存器
 
     assign head_count_r = head_count; // 驱动输出口
@@ -222,9 +228,9 @@ reg [7:0] head_count;   // 内部寄存器
 always @(posedge cam_clk or negedge rst_n) begin
     if (!rst_n) begin
         head_count <= 8'b0;
-    end else if (head_count == 8'h08) begin
+    end else if (head_count == 8'd07) begin
         head_count <= 8'b0;
-    end else if (head_count < 8'h08) begin
+    end else if (head_count < 8'd07) begin
         head_count <= head_count + 1'b1;
     end
 end
@@ -238,16 +244,6 @@ always @(posedge cam_clk or negedge rst_n) begin
         head_true <= 1'b0;
     end
 end
-
-
-
-
-
-
-
-
-
-
 
 
 always @(posedge cam_clk or negedge rst_n) begin
