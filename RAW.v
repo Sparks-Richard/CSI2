@@ -91,7 +91,6 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-         
 module RAW(
     input               rst_n        ,
 
@@ -104,9 +103,10 @@ module RAW(
     input               clk_i        ,// 24MHz clock//EXTCLK
     output              lane0_data   ,
     output reg          head_true    ,
-    output wire [7:0]   head_count_r ,
+    output wire [2:0]   head_count_r ,
     output reg  [7:0]   data_reg_n   ,
     output wire         cam_clk      ,
+    input               clk_12m    ,
     input               clk_24m
 
     // input               clk_i       ,
@@ -158,6 +158,11 @@ always @(*) begin
     endcase
 end
 
+
+
+
+
+
 // 差分时钟输入缓冲
 wire cam_clk_ibuf;
 
@@ -179,18 +184,8 @@ BUFG BUFG_cam_clk (
     .O(cam_clk)      // 送给 RAW、ILA 的全局时钟
 );
 
-
-
-
-
-
-    //reg [ 7:0] head_count ;
     reg [ 7:0] data_reg   ;
-   // reg [ 7:0] data_reg_n ;
-    //wire       lane0_data ;
-    //reg        head_true  ;
-    //wire       lane1_data  ;
-
+   
 // 实例化 IBUFDS 原语将差分信号转换为单端信号
 IBUFDS #(
     .DIFF_TERM("TRUE"),
@@ -201,6 +196,16 @@ IBUFDS #(
     .I(cam_in0_p),
     .IB(cam_in0_n)
 );
+
+
+
+
+
+
+
+
+
+
 
 
 always @(posedge cam_clk or negedge rst_n) begin
@@ -216,35 +221,40 @@ always @(posedge cam_clk or negedge rst_n) begin
         data_reg <= 8'b00;
     end 
 
-    else if(head_count < 8'd8)begin
+    else if(head_count < 3'd8)begin
         data_reg <= {data_reg[6:0], lane0_data} ;
     end
 end
 
-reg [7:0] head_count;   // 内部寄存器
+reg [2:0] head_count;   // 内部寄存器
 
     assign head_count_r = head_count; // 驱动输出口
 
 always @(posedge cam_clk or negedge rst_n) begin
     if (!rst_n) begin
-        head_count <= 8'b0;
-    end else if (head_count == 8'd07) begin
-        head_count <= 8'b0;
-    end else if (head_count < 8'd07) begin
+        head_count <= 3'b0;
+    end else if (head_count == 3'd07) begin
+        head_count <= 3'b0;
+    end else if (head_count < 3'd07) begin
         head_count <= head_count + 1'b1;
     end
 end
 
 always @(posedge cam_clk or negedge rst_n) begin
-    if (!rst_n) begin
-        head_true <= 1'b0;
-    end else if (data_reg_n == 8'h00||data_reg_n == 8'h01||data_reg_n == 8'h02||data_reg_n == 8'h03||data_reg_n == 8'h2A||data_reg_n == 8'h2B) begin
-        head_true <= 1'b1;
-    end else  begin
-        head_true <= 1'b0;
+        if (!rst_n) begin
+            head_true <= 1'b0;
+        end else if (head_count == 3'd7) begin
+            // 仅在计数器满时检测包头
+            case(data_reg_n)
+                8'h00,8'h01,8'h02,8'h03,8'h2A,8'h2B: 
+                    head_true <= 1'b1;
+                default: 
+                    head_true <= 1'b0;
+            endcase
+        end else begin
+            head_true <= 1'b0;
+        end
     end
-end
-
 
 always @(posedge cam_clk or negedge rst_n) begin
     if (!rst_n) begin

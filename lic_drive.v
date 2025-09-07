@@ -123,14 +123,21 @@ always @(posedge clk_i or negedge rst_n) begin
 
             end
             rd_data_byte: begin 
-                if ( Rec_count == 16'd16|| Rec_count == 16'd15) begin
+                if ( Rec_count == 16'd16|| Rec_count == 16'd15|| Rec_count == 16'd17) begin
                     sda_t <= 1'b0;
 
                 end
                 else    sda_t <= 1'b1;
             end
-            wr_dev_ctrl, wr_reg_high, wr_reg_low, wr_data_byte: 
+            wr_dev_ctrl, wr_reg_high, wr_data_byte: 
                 sda_t <= (Rec_count == 16'd15 || Rec_count == 16'd16) ? 1'b1 : 1'b0;
+            
+            wr_reg_low: begin
+                if (wr_rd_flag == 1'b0) // 写操作
+                    sda_t <= (Rec_count == 16'd15 || Rec_count == 16'd16) ? 1'b1 : 1'b0;
+                else // 读操作
+                    sda_t <= (Rec_count == 16'd15 || Rec_count == 16'd16 || Rec_count == 16'd17) ? 1'b1 : 1'b0;
+            end
 
             rd_dev_ctrl: sda_t <= (Rec_count == 16'd15 || Rec_count == 16'd16|| Rec_count == 16'd17) ? 1'b1 : 1'b0;
             i2c_over: sda_t <= 1'b0;
@@ -245,14 +252,12 @@ always @(posedge clk_i or negedge rst_n) begin
             end
             
             rd_data_byte: begin
-                if (Rec_count == 16'd16) begin
+                if (Rec_count == 16'd15 || Rec_count == 16'd16 || Rec_count == 16'd17) begin
                     sda_o<= 1'b0;// 读数据字节时，ACK/NACK信号
-                end else //if (Rec_count == 16'd17) begin
+                end 
+                else begin
                     sda_o <= 1'b1;
-                //end else begin
-                 //   sda_o <= rd_data_byte_r[7];
-                 //   if (!scl) rd_data_byte_r <= {rd_data_byte_r[6:0], sda_o};
-               // end
+                end
             end
             
             i2c_over: begin
@@ -287,21 +292,6 @@ always @(posedge clk_i or negedge rst_n) begin
     end
 end
 
-
-
-// always @(posedge clk_i or negedge rst_n) begin
-//     if (!rst_n) begin
-//         rd_data <= 8'h00;
-//     end else if (nstate == rd_data_byte) begin
-//         // 在有效的 SCL 高电平中点采样 SDA
-//         if ((Rec_count >= 1) && (Rec_count <= 15)) begin
-//             if (Rec_count[3:0] == 4'd8) begin
-//                 // 每8拍采到一位，左移
-//                 rd_data <= {rd_data[6:0], sda_i};
-//             end
-//         end
-//     end
-// end
 
 always @(posedge clk_i or negedge rst_n) begin
     if (!rst_n) begin
@@ -356,23 +346,24 @@ always @(posedge clk_i or negedge rst_n) begin
         case (nstate)
             wr_dev_ctrl, wr_reg_high, wr_reg_low, wr_data_byte, rd_dev_ctrl: begin
                 
-                if (Rec_count == 16'd16) begin
-                    err <= ~sda_i; // ACK检测（期望0），如果SDA高表示没有应答
+                if (Rec_count == 16'd15 || Rec_count == 16'd16) begin
+                    err <= ~sda_i; 
                 end else begin
-                    err <= err;
+                    err <= 1'b0;
                 end
             end
 
             rd_data_byte: begin
-                if (Rec_count == 16'd16) begin
+                if (Rec_count == 16'd15 || Rec_count == 16'd16) begin
                     // 读数据结束后的 ACK 检测
-                    err <= ~sda_i;   // 如果SDA=1 → 无应答
+                    err <= ~sda_i;   
                 end else begin
-                    err <= err; // 保持原值，不要在读数据过程中乱改
+                    err <= 1'b0; 
                 end
             end
 
             default: begin
+
                 err <= 1'b0;
             end
         endcase
@@ -400,4 +391,5 @@ always @(posedge clk_i or negedge rst_n) begin
 end
 
 endmodule
+
 
