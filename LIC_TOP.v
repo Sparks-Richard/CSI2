@@ -73,7 +73,8 @@
 // git commit -m "这里写你改了什么东西"
 //
 // # 第3步：推送到两个网站（每次必做）
-// git push github main && git push gitee main
+// git push github main && git push gitee main  #（ubantu）
+// git push github main; git push gitee main   #（win）
 //////////////////////////////////////////////////////////////////////////////////
 // by Sparks-Richard    this is just a  start 
 // my life will be full of challenges and opportunities
