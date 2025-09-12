@@ -8,7 +8,7 @@
 // git config --global user.name
 // git config --global user.email
 //
-// git remote -v
+// git remote -v//检查在哪个的仓库
 //
 // # 删除origin
 // git remote remove origin
@@ -98,15 +98,18 @@ module RAW(
     input               cam_in0_p    ,   
     input               cam_in0_n    ,//2 lane 
 
+
     input               cam_clk_p    ,
     input               cam_clk_n    ,
     input               clk_i        ,// 24MHz clock//EXTCLK
+    input               csi_start_en ,
     output              lane0_data   ,
     output reg          head_true    ,
     output wire [2:0]   head_count_r ,
+    output reg  [7:0]    nstate       ,
     output reg  [7:0]   data_reg_n   ,
     output wire         cam_clk      ,
-    input               clk_12m    ,
+    input               clk_12m      ,
     input               clk_24m
 
     // input               clk_i       ,
@@ -115,7 +118,7 @@ module RAW(
     );
         
     reg [ 7:0] cstate     ;
-    reg [ 7:0] nstate     ;
+    //reg [ 7:0] nstate     ;
   
     reg [ 7:0] DI_i_0     ; //这是两根线，如果使用的话
     reg [ 7:0] DI_i_1     ; 
@@ -129,6 +132,8 @@ module RAW(
     reg        start_turn ;
     reg        short_pac  ; //判断是否为长短包
 
+    reg [2:0] head_count  ;   // 内部寄存器
+    reg [ 7:0] data_reg   ;
 
 
 // 状态定义 (使用独热码编码)
@@ -145,7 +150,7 @@ localparam  DATA_IN      = 8'b1101_1111; // DF
 
 always @(*) begin
     case (cstate)
-        idle:           nstate = (start_en)   ? HEAD_DI      : idle    ;
+        idle:           nstate = (csi_start_en)   ? HEAD_DI      : idle    ;
         HEAD_DI:        nstate = (start_turn) ? HEAD_WC      : HEAD_DI ;
         HEAD_WC:        nstate = (start_turn) ? HEAD_VCX_ECC : HEAD_WC ;
 
@@ -157,56 +162,48 @@ always @(*) begin
         default: nstate = idle;
     endcase
 end
+always @(posedge cam_clk  or negedge rst_n) begin
+    if (!rst_n) begin
+        start_turn <= 1'b0; 
+    end
+    else if (head_count == 3'd07) begin
+        start_turn <= 1'b1; // 每8个数据周期产生一个start_turn信号
+    end else begin
+        start_turn <= 1'b0;
+    end
+    
+end
 
 
 
-
-
-
-// 差分时钟输入缓冲
+//差分时钟输入缓冲
 wire cam_clk_ibuf;
+wire cam_clk;
+// 最简单的差分转单端方案
 
-IBUFDS #(
-    .DIFF_TERM("TRUE"),      // 开启差分终端电阻（如果硬件支持）
-    .IBUF_LOW_PWR("FALSE"),  // 关闭低功耗模式，保证信号完整性
-    .IOSTANDARD("LVDS")      // MIPI 输出的是 LVDS，注意不要写 LVDS_25
-) IBUFDS_cam_clk (
-    .I (cam_clk_p),  // 摄像头时钟差分正端
-    .IB(cam_clk_n),  // 摄像头时钟差分负端
-    .O (cam_clk_ibuf) // 单端时钟输出
+// 使用标准IBUFDS
+IBUFDS ibufds_cam_clk (
+    .O(cam_clk_ibuf),  // 单端输出
+    .I(cam_clk_p),     // 差分正端输入
+    .IB(cam_clk_n)     // 差分负端输入
 );
-
 // 全局时钟缓冲
-//wire cam_clk;
+
 
 BUFG BUFG_cam_clk (
     .I(cam_clk_ibuf),
     .O(cam_clk)      // 送给 RAW、ILA 的全局时钟
 );
 
-    reg [ 7:0] data_reg   ;
+
    
-// 实例化 IBUFDS 原语将差分信号转换为单端信号
-IBUFDS #(
-    .DIFF_TERM("TRUE"),
-    .IBUF_LOW_PWR("FALSE"),
-    .IOSTANDARD("LVDS")   // ← 这是 1.8V LVDS，不要写 LVDS_25
-) ibufds_lane0_inst (
-    .O(lane0_data),
-    .I(cam_in0_p),
-    .IB(cam_in0_n)
+   
+// 最简差分转单端配置（去除所有非必要参数）
+IBUFDS ibufds_lane0_inst (
+    .O(lane0_data),  // 单端数据输出
+    .I(cam_in0_p),   // 差分正端输入
+    .IB(cam_in0_n)   // 差分负端输入
 );
-
-
-
-
-
-
-
-
-
-
-
 
 always @(posedge cam_clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -221,12 +218,11 @@ always @(posedge cam_clk or negedge rst_n) begin
         data_reg <= 8'b00;
     end 
 
-    else if(head_count < 3'd8)begin
+    else if (head_count < 3'd07) begin
         data_reg <= {data_reg[6:0], lane0_data} ;
     end
 end
 
-reg [2:0] head_count;   // 内部寄存器
 
     assign head_count_r = head_count; // 驱动输出口
 

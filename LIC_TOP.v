@@ -5,10 +5,20 @@
 // # 方式1：使用绝对路径
 // read_hw_ila_data /home/lijiatu/VERILOGDAIMA/I2C/I2C.srcs/sources_1/new/zhua-head-first-try.ila
 //////////////////////////////////////////////////////////////////////////////////
+// # 1. 打开 Hardware Manager（无需连接硬件）
+// open_hw_manager
+//
+// # 2. 加载 .ila 文件（注意路径格式！）
+// read_hw_ila_data -file D:/路径/文件名.ila
+//
+// # 3. 显示波形（自动选择最新加载的数据）
+// display_hw_ila_data [get_hw_ila_data]
+//////////////////////////////////////////////////////////////////////////////////
 // git config --global user.name
 // git config --global user.email
-//
-// git remote -v
+///////////////////////////////////////////////////////////////////////////////////
+////检查在哪个的仓库
+// git remote -v        
 //
 // # 删除origin
 // git remote remove origin
@@ -85,18 +95,23 @@ module IIC_Top(
     output              clk_24m   , // 24MHz 时钟输出 (供摄像头使用)
     output              cam_rst   , // 摄像头复位信号
 
-    output              clk_12m   , // 12MHz 时钟输出 (备用)
+    //output              clk_12m   , // 12MHz 时钟输出 (备用)
+
+
     input               cam_clk_p , // 摄像头时钟输入+
     input               cam_clk_n , // 摄像头时钟输入-
     input               cam_in0_p , //2 lane  
     input               cam_in0_n 
+
+
     // input               cam_in1_p , //2 lane
     // input               cam_in1_n ,
-    //output     wire     cam_clk
+    // output     wire     cam_clk
 );
 
 
-
+wire            clk_12m;
+//wire            clk_24m;
 
 // 内部信号声明
 reg     [3:0]   count_reg;       // 时钟分频计数器
@@ -122,6 +137,17 @@ wire            head_true;///////////我后加的
 wire    [7:0]   data_reg_n;
 wire    [2:0]   head_count;
 wire            cam_clk;
+
+wire            CSI_START;
+reg     [1:0]   CSI_en_tri_r;
+wire            csi_start_en;
+
+assign CSI_START = CSI_en_tri_r[1] & (~CSI_en_tri_r[0]); 
+
+always @(posedge clk_i) begin
+     CSI_en_tri_r <= { CSI_en_tri_r[0],  CSI_en_tri};
+end
+
 
 // SDA 三态控制信号
 wire sda_i, sda_o, sda_t;
@@ -174,18 +200,18 @@ end
 
   // ===== 添加复位同步器 =====
     // I²C 专用复位同步器
-    (* ASYNC_REG = "TRUE" *) reg [2:0] iic_rst_sync;
-    always @(posedge clk_8m) begin
-        iic_rst_sync <= {iic_rst_sync[1:0], rst_n};
-    end
-    wire iic_rst_n = iic_rst_sync[2];
+    // (* ASYNC_REG = "TRUE" *) reg [2:0] iic_rst_sync;
+    // always @(posedge clk_8m) begin
+    //     iic_rst_sync <= {iic_rst_sync[1:0], rst_n};
+    // end
+    // wire iic_rst_n = iic_rst_sync[2];
     
-    // CSI-2 专用复位同步器
-    (* ASYNC_REG = "TRUE" *) reg [2:0] csi_rst_sync;
-    always @(posedge cam_clk) begin
-        csi_rst_sync <= {csi_rst_sync[1:0], rst_n};
-    end
-    wire csi_rst_n = csi_rst_sync[2];
+    // // CSI-2 专用复位同步器
+    // (* ASYNC_REG = "TRUE" *) reg [2:0] csi_rst_sync;
+    // always @(posedge cam_clk) begin
+    //     csi_rst_sync <= {csi_rst_sync[1:0], rst_n};
+    // end
+    // wire csi_rst_n = csi_rst_sync[2];
 
 
 
@@ -197,26 +223,22 @@ clk_wiz_0 clk_wiz_u (
     .clk_out1(clk_8m),    // 8MHz 时钟
     .clk_out2(clk_24m),   // 24MHz 时钟
     .clk_out3(clk_50m),   // 50MHz 时钟
-    .locked(rst_n),       // 锁定信号作为复位
+    .locked (rst_n),       // 锁定信号作为复位
     .clk_in1_p(sysclk_p), // 差分时钟+
     .clk_in1_n(sysclk_n)  // 差分时钟-
 
 );
+
   clk_wiz_1 clk_wiz_u2 
   (
-
   .clk_out1(clk_12m),
-           
-  
-  .locked(),
- 
-  .clk_in1_p(cam_clk_p),
-  .clk_in1_n(cam_clk_n)
+  .clk_in1(clk_24m)
   );
 
+wire   [7:0] ntate;
 
 RAW RAW_r(
-    .rst_n              (csi_rst_n   ),     
+    .rst_n              (rst_n   ),     
    // .clk_i              (clk_i       ),
     .Lane_Change        (1'b0         ),
     .cam_in0_p          (cam_in0_p    ),   
@@ -230,7 +252,9 @@ RAW RAW_r(
     .head_true          (head_true    ),
     .data_reg_n         (data_reg_n   ),
     .head_count_r       (head_count   ),
+    .csi_start_en       (CSI_START    ),
     .cam_clk            (cam_clk      ),
+    .nstate             (ntate        ),
     .clk_12m            (clk_12m     )
 
 );
@@ -240,7 +264,7 @@ RAW RAW_r(
 // 功能：提供片上逻辑分析仪功能
 ///////////////////////////////////////////////////////////////////////////////
 ila_0 ila_u (
-    .clk        (clk_50m),           // 采样时钟
+    .clk        (clk_8m),           // 采样时钟
     
     .probe0     (sda_o),         // SDA 输出值
     .probe1     (SCK),           // SCL 时钟
@@ -248,9 +272,9 @@ ila_0 ila_u (
     .probe3     (TESTSDI),       // SDA 实际值
     .probe4     (rd_data),       // 读取数据
     .probe5     (sda_t),         // SDA 三态控制
-    .probe6     (nstate),        // 下一状态
+    .probe6     (nstate),        // 下一状态   //8
     .probe7     (clk_i),         // I2C 控制时钟
-    .probe8     (Rec_count),     // 状态计数器
+    .probe8     (Rec_count),     // 状态计数器 //8
     .probe9     (err),           // 错误信号
     .probe10    (cam_rst),      // 摄像头复位
     .probe11    (clk_24m)       // 24MHz 时钟
@@ -271,16 +295,16 @@ ila_1 ila_1_u (
     .clk        (clk_12m),     
     
     .probe0     (lane0_data),  
-    .probe1     (head_true),   
-    .probe2     (data_reg_n),  
-    .probe3     (cam_clk),     
-    .probe4     (head_count),  
-    .probe5     (rst_n),       
-    .probe6     (iic_rst_n),   
-    .probe7     (csi_rst_n)    ,
-    .probe8     (clk_12m)
-
-
+    .probe1     (head_true ) ,   
+    .probe2     (data_reg_n),  //8bit data
+    .probe3     (cam_clk   ),     
+    .probe4     (head_count),  //3bit head count
+    .probe5     (rst_n)     ,
+    .probe6     (ntate)     //8bit nstate      
+    // .probe6     (iic_rst_n) ,   
+    // .probe7     (csi_rst_n) ,
+    // .probe8     (cam_clk_p),
+    // .probe9     (cam_clk_n)
 );
 
 
@@ -293,13 +317,20 @@ ila_1 ila_1_u (
 ///////////////////////////////////////////////////////////////////////////////
 //assign i2c_device_addr = 8'h36;
 vio_0 vio_u (
-    .clk(clk_8m),               // 采样时钟（8MHz）
-    .probe_in0(busy),           // 输入：忙信号
-    .probe_out0(wr_rd_flag),    // 输出：读写标志
-    .probe_out1(IIC_en_tri),    // 输出：I2C使能
-    .probe_out2(i2c_device_addr), // 输出：设备地址
-    .probe_out3(register),      // 输出：寄存器地址
-    .probe_out4(data_byte)      // 输出：写入数据
+    .clk        (clk_8m),                // 采样时钟（8MHz）
+    .probe_in0  (busy),           // 输入：忙信号
+    .probe_out0 (wr_rd_flag),    // 输出：读写标志
+    .probe_out1 (IIC_en_tri),    // 输出：I2C使能
+    .probe_out2 (i2c_device_addr), // 输出：设备地址 //8bit
+    .probe_out3 (register),      // 输出：寄存器地址 //16bit
+    .probe_out4 (data_byte)      // 输出：写入数据   //8bit
+);
+
+vio_1 vio_u1 (
+    .clk        (clk_8m),                // 采样时钟（8MHz）
+    //.probe_in0  (),           // 输入：
+    .probe_out0 (CSI_en_tri)    // 输出：
+    
 );
 
 ///////////////////////////////////////////////////////////////
@@ -318,7 +349,7 @@ cam_reset_min reset_min(
 iic_drive iic_drive_r(
     .clk_8m             (clk_8m)          ,
     .clk_i              (clk_i)           ,
-    .rst_n              (iic_rst_n)       ,
+    .rst_n              (rst_n)       ,
     .wr_rd_flag         (wr_rd_flag)      ,
     .start_en           (IIC_START)       ,
     .i2c_device_addr    (i2c_device_addr) ,
