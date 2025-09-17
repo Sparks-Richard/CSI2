@@ -99,19 +99,25 @@ module IIC_Top(
     //output              clk_12m   , // 12MHz 时钟输出 (备用)
 
 
-    input               cam_clk_p , // 摄像头时钟输入+
-    input               cam_clk_n , // 摄像头时钟输入-
-    input               cam_in0_p , //2 lane  
-    input               cam_in0_n 
+    input               cam_clk_hs_p , // 摄像头时钟输入+
+    input               cam_clk_hs_n , // 摄像头时钟输入-
+    input      [1:0]    cam_in_hs_p , //2 lane  
+    input      [1:0]    cam_in_hs_n ,
+  
+
+    input               cam_clk_lp_p , // 摄像头时钟输入+
+    input               cam_clk_lp_n , // 摄像头时钟输入-
+  
+    input      [1:0]    cam_in_lp_p , //2 lane
+    input      [1:0]    cam_in_lp_n 
 
 
-    // input               cam_in1_p , //2 lane
-    // input               cam_in1_n ,
-    // output     wire     cam_clk
+
+    
 );
 
 
-wire            clk_12m;
+
 //wire            clk_24m;
 
 // 内部信号声明
@@ -145,7 +151,7 @@ wire            csi_start_en;
 
 assign CSI_START = CSI_en_tri_r[1] & (~CSI_en_tri_r[0]); 
 
-always @(posedge clk_i) begin
+always @(posedge clkout_bufg) begin
      CSI_en_tri_r <= { CSI_en_tri_r[0],  CSI_en_tri};
 end
 
@@ -199,20 +205,7 @@ always @(posedge clk_i) begin
 end
 
 
-  // ===== 添加复位同步器 =====
-    // I²C 专用复位同步器
-    // (* ASYNC_REG = "TRUE" *) reg [2:0] iic_rst_sync;
-    // always @(posedge clk_8m) begin
-    //     iic_rst_sync <= {iic_rst_sync[1:0], rst_n};
-    // end
-    // wire iic_rst_n = iic_rst_sync[2];
-    
-    // // CSI-2 专用复位同步器
-    // (* ASYNC_REG = "TRUE" *) reg [2:0] csi_rst_sync;
-    // always @(posedge cam_clk) begin
-    //     csi_rst_sync <= {csi_rst_sync[1:0], rst_n};
-    // end
-    // wire csi_rst_n = csi_rst_sync[2];
+
 
 
 
@@ -220,43 +213,75 @@ end
 // 时钟管理模块
 // 功能：生成系统所需的各种时钟
 ///////////////////////////////////////////////////////////////////////////////
+wire            clk_12m;
 clk_wiz_0 clk_wiz_u (
     .clk_out1(clk_8m),    // 8MHz 时钟
-    .clk_out2(clk_24m),   // 24MHz 时钟
+    .clk_out2(clk_24m),   // 24MHz 时钟//为了测试会变为12或者36
     .clk_out3(clk_50m),   // 50MHz 时钟
+    .clk_out4(clk_12m),   // 12MHz 时钟
     .locked (rst_n),       // 锁定信号作为复位
     .clk_in1_p(sysclk_p), // 差分时钟+
     .clk_in1_n(sysclk_n)  // 差分时钟-
 
 );
 
-  clk_wiz_1 clk_wiz_u2 
-  (
-  .clk_out1(clk_12m),
-  .clk_in1(clk_24m)
-  );
+//   clk_wiz_1 clk_wiz_u2 
+//   (
+//   .clk_out1(clk_12m),
+//   .clk_in1(clk_24m)
+//   );
 
 wire   [7:0] ntate;
 
+// wire ila_clk_raw;
+
 RAW RAW_r(
     .rst_n              (rst_n   ),     
-   // .clk_i              (clk_i       ),
-    .Lane_Change        (1'b0         ),
-    .cam_in0_p          (cam_in0_p    ),   
-    .cam_in0_n          (cam_in0_n    ), //2 lane 
+   // .clk_i              (clk_i       ),/
+    // .Lane_Change        (1'b0         ),
+    // .cam_in0_p          (cam_in0_p    ),   
+    // .cam_in0_n          (cam_in0_n    ), //2 lane 
     //.cam_in1_p         (1'b0        ),   
     //.cam_in1_n         (1'b0        ), //2 lane 
-    .cam_clk_p          (cam_clk_p    ),
-    .cam_clk_n          (cam_clk_n    ),
-    .clk_i              (clk_24m      ),// 24MHz clock//EXTCLK
-    .lane0_data         (lane0_data   ),
+    // .cam_clk_p          (cam_clk_p    ),
+    // .cam_clk_n          (cam_clk_n    ),
+  // .clk_24m            (clk_24m      ),// 24MHz clock//EXTCLK
+    .lane0_data         (dataout   ),
     .head_true          (head_true    ),
     .data_reg_n         (data_reg_n   ),
     .head_count_r       (head_count   ),
-    .csi_start_en       (CSI_START    ),
-    .cam_clk            (cam_clk      ),
-    .nstate             (ntate        ),
-    .clk_12m            (clk_12m     )
+    //.csi_start_en       (CSI_START    ),
+    .cam_clk            (clkout_bufg      ),
+   // .ila_clk               (ila_clk_raw),
+      // .clk_12m            (clk_12m     )
+    .nstate             (ntate        )
+ 
+
+);
+
+wire dataout;
+wire clkout;
+
+  MIPI MIPI_U
+ (
+   .data_in_from_pins_p     (cam_in_hs_p[0]), // input [0:0] data_in_from_pins_p
+   .data_in_from_pins_n     (cam_in_hs_n[0]), // input [0:0] data_in_from_pins_n
+   .data_in_to_device       (dataout), // output [0:0] data_in_to_device
+   .clk_in_p                (cam_clk_hs_p), // input clk_in_p                          
+   .clk_in_n                (cam_clk_hs_n), // input clk_in_n
+   .clk_out                 (clkout_bufg), // output clk_out
+   .io_reset                (!rst_n) // input io_reset
+); 
+wire clkout_bufg;
+
+
+
+ila_2 ila_u_2 
+(
+    .clk        (clkout_bufg),           // 采样时钟
+    
+    .probe0     (dataout),
+    .probe1     (1'b0)
 
 );
 
@@ -277,9 +302,9 @@ ila_0 ila_u (
     .probe7     (clk_i),         // I2C 控制时钟
     .probe8     (Rec_count),     // 状态计数器 //8
     .probe9     (err),           // 错误信号
-    .probe10    (cam_rst),      // 摄像头复位
-    .probe11    (clk_24m)       // 24MHz 时钟
-
+    .probe10    (clkout_bufg)      // 摄像头复位
+    // .probe11    (clk_24m)   ,    // 24MHz 时钟
+    // .probe12    (clk_12m)
     // .probe12    (lane0_data),
     // .probe13    (head_true),
     // .probe14    (data_reg_n),//8bit data
@@ -289,19 +314,21 @@ ila_0 ila_u (
     // .probe17    (rst_n),
     // .probe18    (iic_rst_n),
     // .probe19    (csi_rst_n)
-
 );
 
 ila_1 ila_1_u (
-    .clk        (clk_12m),     
-    
-    .probe0     (lane0_data),  
+    .clk        (clk_50m),     
+
+    .probe0     (dataout),  
     .probe1     (head_true ) ,   
     .probe2     (data_reg_n),  //8bit data
-    .probe3     (cam_clk   ),     
+    .probe3     (clkout_bufg),     
     .probe4     (head_count),  //3bit head count
     .probe5     (rst_n)     ,
-    .probe6     (ntate)     //8bit nstate      
+    .probe6     (ntate)     ,//8bit nstate
+    .probe7     (cam_rst)   
+    // .probe8     ()    ,
+    // .probe9     (clk_12m)  
     // .probe6     (iic_rst_n) ,   
     // .probe7     (csi_rst_n) ,
     // .probe8     (cam_clk_p),
@@ -328,7 +355,7 @@ vio_0 vio_u (
 );
 
 vio_1 vio_u1 (
-    .clk        (clk_8m),                // 采样时钟（8MHz）
+    .clk        (clkout_bufg),      //要同源          // 采样时钟（8MHz）
     //.probe_in0  (),           // 输入：
     .probe_out0 (CSI_en_tri)    // 输出：
     
@@ -350,7 +377,7 @@ cam_reset_min reset_min(
 iic_drive iic_drive_r(
     .clk_8m             (clk_8m)          ,
     .clk_i              (clk_i)           ,
-    .rst_n              (rst_n)       ,
+    .rst_n              (rst_n)           ,
     .wr_rd_flag         (wr_rd_flag)      ,
     .start_en           (IIC_START)       ,
     .i2c_device_addr    (i2c_device_addr) ,

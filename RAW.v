@@ -90,27 +90,35 @@
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
-
+// 寄存器地址  配置值  功能说明
+// ​​0x0100​​     0x01  强制退出睡眠模式（Bit[0]=1）
+	
+// ​0x3018​     0x1A   1-lane模式（Bit[7:5]=000）
+	
+// ​​0x3031​​     0x08   RAW8输出（Bit[4:0]=01000）
+	
 module RAW(
     input               rst_n        ,
 
-    input               Lane_Change  ,
-    input               cam_in0_p    ,   
-    input               cam_in0_n    ,//2 lane 
+//     input               Lane_Change  ,
+//     input               cam_in0_p    ,   
+//     input               cam_in0_n    ,//2 lane 
 
 
-    input               cam_clk_p    ,
-    input               cam_clk_n    ,
-    input               clk_i        ,// 24MHz clock//EXTCLK
-    input               csi_start_en ,
-    output              lane0_data   ,
+//     input               cam_clk_p    ,
+//     input               cam_clk_n    ,
+//    // input               clk_i        ,// 24MHz clock//EXTCLK
+//     input               csi_start_en ,
+    input              lane0_data   ,
     output reg          head_true    ,
     output wire [2:0]   head_count_r ,
-    output reg  [7:0]    nstate       ,
+    output reg  [7:0]    nstate      ,
     output reg  [7:0]   data_reg_n   ,
-    output wire         cam_clk      ,
-    input               clk_12m      ,
-    input               clk_24m
+    input wire         cam_clk      
+
+    //output wire ila_clk
+    // input               clk_12m      ,
+    // input               clk_24m
 
     // input               clk_i       ,
     // input               cam_in1_p   ,   
@@ -150,11 +158,11 @@ localparam  DATA_IN      = 8'b1101_1111; // DF
 
 always @(*) begin
     case (cstate)
-        idle:           nstate = (csi_start_en)   ? HEAD_DI      : idle    ;
+        idle:           nstate = (start_turn)   ? HEAD_DI      : idle  ;
         HEAD_DI:        nstate = (start_turn) ? HEAD_WC      : HEAD_DI ;
         HEAD_WC:        nstate = (start_turn) ? HEAD_VCX_ECC : HEAD_WC ;
 
-        HEAD_VCX_ECC:   nstate = (start_turn) ? ((short_pac) ? END_PF : DATA_IN) : HEAD_VCX_ECC;
+        HEAD_VCX_ECC:   nstate = (start_turn) ? ((short_pac) ? END_PF : DATA_IN) : HEAD_VCX_ECC ;
 
         DATA_IN:        nstate = (start_turn) ? END_PF : DATA_IN ;
         END_PF:         nstate = (start_turn) ? idle   : END_PF  ;
@@ -177,33 +185,52 @@ end
 
 
 //差分时钟输入缓冲
-wire cam_clk_ibuf;
+// wire cam_clk_ibuf;
 wire cam_clk;
 // 最简单的差分转单端方案
 
-// 使用标准IBUFDS
-IBUFDS ibufds_cam_clk (
-    .O(cam_clk_ibuf),  // 单端输出
-    .I(cam_clk_p),     // 差分正端输入
-    .IB(cam_clk_n)     // 差分负端输入
-);
-// 全局时钟缓冲
+// // 使用标准IBUFDS
+// IBUFDS ibufds_cam_clk (
+//     .O(cam_clk_ibuf),  // 单端输出
+//     .I(cam_clk_p),     // 差分正端输入
+//     .IB(cam_clk_n)     // 差分负端输入
+// );
+// // 全局时钟缓冲
 
 
-BUFG BUFG_cam_clk (
-    .I(cam_clk_ibuf),
-    .O(cam_clk)      // 送给 RAW、ILA 的全局时钟
-);
+// BUFG BUFG_cam_clk (
+//     .I(cam_clk_ibuf),
+//     .O(cam_clk)      // 送给 RAW、ILA 的全局时钟
+// );
 
 
    
    
-// 最简差分转单端配置（去除所有非必要参数）
-IBUFDS ibufds_lane0_inst (
-    .O(lane0_data),  // 单端数据输出
-    .I(cam_in0_p),   // 差分正端输入
-    .IB(cam_in0_n)   // 差分负端输入
-);
+// // 最简差分转单端配置（去除所有非必要参数）
+// IBUFDS ibufds_lane0_inst (
+//     .O(lane0_data),  // 单端数据输出
+//     .I(cam_in0_p),   // 差分正端输入
+//     .IB(cam_in0_n)   // 差分负端输入
+// );
+
+
+
+// MMCME2_BASE #(
+//     .CLKIN1_PERIOD(5.0),      // 200MHz输入周期
+//     .CLKFBOUT_MULT_F(4),      // 4倍频 → VCO=800MHz
+//     .DIVCLK_DIVIDE(1),        // 输入分频系数
+//     .CLKOUT0_DIVIDE_F(8.0)    // 8分频 → 100MHz (2³)
+// ) mmcm_inst (
+//     .CLKIN1(cam_clk),         // 输入cam_clk
+//     .CLKOUT0(ila_clk_int)     // 中间时钟
+// );
+
+// BUFG bufg_ila_clk (
+//     .I(ila_clk_int),
+//     .O(ila_clk)               // 输出到TOP模块
+// );
+
+
 
 always @(posedge cam_clk or negedge rst_n) begin
     if (!rst_n) begin

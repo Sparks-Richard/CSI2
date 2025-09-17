@@ -6,7 +6,7 @@ module iic_drive(
     input               rst_n,
     input               wr_rd_flag, // 0:写 1:读
     input               start_en,
-    input        [7:0]   i2c_device_addr,
+    input       [ 7:0]  i2c_device_addr,
     input       [15:0]  register,
     input       [7:0]   data_byte,
     output reg          scl,
